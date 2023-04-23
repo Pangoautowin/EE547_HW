@@ -1,0 +1,58 @@
+<h1>Players Dashboard</h1><br>
+<% if (total_num === 0) { %>
+    <p>There are zero players!</p>
+<% } else { %>
+
+    <table class="c1">
+        <thead>
+            <tr>
+                <!-- <th></th>
+                <th></th> -->
+                <!-- <th>Name</th>
+                <th>Handed</th>
+                <th>Balance (usd)</th>
+                <th>Active or not</th>
+                <th>Edit Link</th>
+                <th>Delete Link</th> -->
+            </tr>
+        </thead>
+        <tbody>
+                <tr>
+                    <td>Total Number of Players</td>
+                    <td id="total_num"><%= total_num %></td>
+                </tr>
+                <tr>
+                    <td>Number of Active Players</td>
+                    <td id="num_active"><%= num_active %></td>
+                </tr>
+                <tr>
+                    <td>Number of Inactive Players</td>
+                    <td id="num_inactive"><%= num_inactive %></td>
+                </tr>
+                <tr>
+                    <td>Average Current Balance of All Players ($)</td>
+                    <td id="avg_balance"><%= (avg_balance/100).toFixed(2) %></td>
+                </tr>
+        </tbody>
+    </table>
+<% } %>
+
+<script>
+    const POLL_INTEVAL_SEC = 10;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        const updateDashboard = () => {
+            return fetch('/api/dashboard/player').then(r => r.json()).then(data => {
+                // Update the dashboard with the new data
+                document.getElementById("total_num").innerHTML = data.total_num;
+                document.getElementById("num_active").innerHTML = data.num_active;
+                document.getElementById("num_inactive").innerHTML = data.num_inactive;
+                document.getElementById("avg_balance").innerHTML = (data.avg_balance/100).toFixed(2);
+            });
+        };
+        // initial updateDashboard then periodically
+        updateDashboard();
+        setInterval(updateDashboard, POLL_INTEVAL_SEC * 1e3);
+    });
+</script>
+

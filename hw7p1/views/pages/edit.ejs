@@ -1,0 +1,96 @@
+<h1>Edit Player <%= pid %></h1><br>
+<form method="POST" id="edit_form">
+    <ul>
+        <li>
+            <label for="fname">First Name:</label>
+            <input type="text" id="fname" name="fname">
+        </li>
+        <li>
+            <label for="lname">Last Name:</label>
+            <input type="text" id="lname" name="lname">
+        </li>
+        <li>
+            <label for="handed">Handed:</label>
+            <select id="handed" name="handed">
+                <option value="left">left</option>
+                <option value="right">right</option>
+                <option value="ambi">ambi</option>
+            </select>
+        </li>
+        <li>
+            <label for="is_active">Active or Not:</label>
+            <select id="is_active" name="is_active">
+                <option value="true">active</option>
+                <option value="false">not active</option>
+            </select>
+        </li>
+        <li>
+            <label for="balance_usd_cents">Balance(in cents):</label>
+            <input type="number" id="balance_usd_cents" name="balance_usd_cents" min="0">
+        </li>
+        <li>
+            <!-- <input type="submit" value="Submit"> -->
+            <button type="submit">Submit</button>
+            <input type="hidden" name="redirect" value="/player.html">
+        </li>
+    </ul>
+</form><br><br>
+
+<p id="flash-message"></p>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const url = new URL(window.location.href);
+        const playerId = url.pathname.split('/')[2];
+        fetch(`/api/player/${playerId}`).then(r => r.json()).then(data => {
+            // example, set value for text field
+            // note: just raw data, no "cleanup" for user
+            document.getElementById('fname').value = data.name.split(' ')[0];
+            document.getElementById('lname').value = data.name.split(' ')[1];
+            document.getElementById('handed').value = data.handed;
+            document.getElementById('is_active').value = data.is_active;
+            document.getElementById('balance_usd_cents').value = data.balance_usd_cents;
+            document.getElementById('edit_form').action = `/api/player/${playerId}`;
+            // [...] add more
+            // "id=" attributes uniquely identify elements
+        }).catch(error => {
+            document.getElementById('flash-message').innerHTML = error;
+        });
+
+        const form = document.getElementById("edit_form");
+        form.addEventListener("submit", event => {
+            // Perform validation here
+            event.preventDefault();
+
+            let fname_v = document.getElementById('fname').value;
+            let lname_v = document.getElementById('lname').value;
+            let handed_v = document.getElementById('handed').value;
+            let active_v = document.getElementById('is_active').value;
+            let balance_v = document.getElementById('balance_usd_cents').value;
+
+            const obj_ply = isValidForm(fname_v, lname_v, handed_v, active_v, balance_v);
+            console.log(balance_v);
+
+
+            if (!obj_ply) {
+                // event.preventDefault();
+                console.log("balance_v = ", balance_v);
+                const invalid_fields = checkValid_v2(fname_v, lname_v, handed_v, active_v, balance_v);
+                document.getElementById('flash-message').innerHTML = invalid_fields;
+            } else {
+                fetch(`/api/player/${playerId}`, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(obj_ply)
+                }).then(r => r.json()).then(data => {
+                    window.location.href = "/player.html";
+                })
+            }
+        })
+    });
+
+    // const sampleForm = document.getElementById("edit_form");
+    // sampleForm.addEventListener("submit", transferFormToJson);
+
+
+</script>

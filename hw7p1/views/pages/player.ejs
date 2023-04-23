@@ -1,0 +1,75 @@
+<h1>Players List</h1><br>
+<div>
+    <label for="search-box">Search for Player: </label>
+    <input type="text" id="search-box" placeholder="Type Name Here " class="to_center">
+</div><br>
+<% if (num === 0) { %>
+    <p>There are zero players!</p>
+<% } else { %>
+    <table>
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Handed</th>
+                <th>Balance (usd)</th>
+                <th>Active or not</th>
+                <th>Edit Link</th>
+                <th>Delete Link</th>
+            </tr>
+        </thead>
+        <tbody>
+            <% plys.forEach(function(ply) { %>
+                <tr>
+                    <td><%= ply.pid %></td>
+                    <td><%= ply.name %></td>
+                    <td><%= ply.handed %></td>
+                    <td>$<%= ply.balance_usd_cents/100 %></td>
+                    <td><%= ply.is_active %></td>
+                    <td><a href="/player/<%= ply.pid %>/edit.html">edit</a></td>
+                    <td>
+                        <button class="delete-btn" data-endpoint="/api/player/<%= ply.pid %>">Delete</button>
+                    </td>
+                </tr>
+            <% }); %>
+        </tbody>
+    </table>
+
+    <a href="http://localhost:3000/player/create.html">Click here to create a new player</a>
+
+<% } %>
+
+<script>
+    const deleteButtons = document.querySelectorAll('.delete-btn');
+
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', (event) => {
+            event.preventDefault(); // Prevent form from being submitted
+
+            const endpoint = button.getAttribute('data-endpoint');
+
+            // Make AJAX request to delete data
+            fetch(endpoint, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                console.log(response);
+                window.location.href = '/player.html';
+            // Do something with the response, such as display a success message
+            })
+            .catch(error => {
+                console.error(error);
+            // Handle any errors that occur during the request
+            });
+        });
+    });
+
+    document.getElementById('search-box').addEventListener('keyup', (event) => {
+        const searchQuery = event.target.value;
+        fetch(`/api/player?q=${encodeURIComponent(searchQuery)}`, {
+            method: 'GET'
+        }).then(r => r.json()).then(replacePlayerList); // defined in site.js
+    });
+</script>
+
+

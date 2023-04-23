@@ -1,0 +1,82 @@
+<h1>Create a New Active Player</h1><br>
+<form action="/api/player" method="POST" id="create_form">
+    <ul>
+        <li>
+            <label for="fname">First Name:</label>
+            <input type="text" id="fname" name="fname">
+        </li>
+        <li>
+            <label for="lname">Last Name:</label>
+            <input type="text" id="lname" name="lname">
+        </li>
+        <li>
+            <label for="handed">Handed:</label>
+            <select id="handed" name="handed">
+                <option value="left">left</option>
+                <option value="right">right</option>
+                <option value="ambi">ambi</option>
+            </select>
+        </li>
+        <!-- <li>
+            <label for="is_active">Active or Not:</label>
+            <select id="is_active" name="is_active">
+                <option value="true">active</option>
+                <option value="false">not active</option>
+            </select>
+        </li> -->
+        <li>
+            <label for="initial_balance_usd_cents">Balance(in cents):</label>
+            <input type="number" id="initial_balance_usd_cents" name="initial_balance_usd_cents" min="0">
+        </li>
+        <li>
+            <!-- <input type="submit" value="Submit"> -->
+            <button type="submit">Submit</button>
+            <input type="hidden" name="redirect" value="/player.html">
+        </li>
+    </ul>
+</form>
+
+<p id="flash-message"></p>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+
+        const form = document.getElementById("create_form");
+        form.addEventListener("submit", async event => {
+            // Perform validation here
+            event.preventDefault();
+
+            let fname_v = document.getElementById('fname').value;
+            let lname_v = document.getElementById('lname').value;
+            let handed_v = document.getElementById('handed').value;
+            // let active_v = document.getElementById('is_active').value;
+            let balance_v = document.getElementById('initial_balance_usd_cents').value;
+
+            const obj_ply = isValidForm(fname_v, lname_v, handed_v, true, balance_v);
+            // console.log(balance_v);
+
+
+            if (!obj_ply) {
+                // event.preventDefault();
+                // console.log("balance_v = ", balance_v);
+                const invalid_fields = checkValid_v2(fname_v, lname_v, handed_v, true, balance_v);
+                document.getElementById('flash-message').innerHTML = invalid_fields;
+            } else {
+                await fetch("/api/player", {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify(obj_ply)
+                }).then(r => r.json()).then(data => {
+                    window.location.href = "/player.html";
+                }).catch(error => {
+                    throw error;
+                });
+            }
+        })
+    });
+
+    // const sampleForm = document.getElementById("edit_form");
+    // sampleForm.addEventListener("submit", transferFormToJson);
+
+
+</script>
