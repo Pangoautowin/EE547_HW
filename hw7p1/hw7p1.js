@@ -17,6 +17,7 @@ const util = require('util');
 // const methodOverride = require('method-override');
 const {graphqlHTTP} = require('express-graphql');
 const { buildSchema } = require('graphql');
+const { match } = require('assert');
 
 
 
@@ -364,7 +365,7 @@ class MongoDB {
     }
 
 
-    transformatPlayer(ply) {
+    async transformatPlayer(ply) {
         let name_new = "";
         if (ply["lname"] === "" || ply["lname"] === null)
             name_new = ply["fname"];
@@ -379,12 +380,14 @@ class MongoDB {
         else 
             handed_new = "ambi";
 
-        let i_a_m = ply.in_active_match;
-        if (i_a_m === undefined) i_a_m = null;
+        let i_a_m = null;
+        if (ply.in_active_match) i_a_m = await this.getMatch(ply.in_active_match);
         
         const ply_new = {
             pid: ply._id.toString(),
             name: name_new,
+            fname: ply["fname"],
+            lname: ply["lname"],
             handed: handed_new,
             is_active: ply["is_active"],
             num_join: ply.num_join || 0,
@@ -414,7 +417,7 @@ class MongoDB {
         // console.log(2)
         // console.log('ply = ', ply);
 
-        if (ply) return this.transformatPlayer(ply);
+        if (ply) return await this.transformatPlayer(ply);
         else throw this.error_2;
 
         // if (this.players.length === 0)
@@ -560,7 +563,7 @@ class MongoDB {
 
         for (let i=0; i<plys.length; i+=1) {
             // console.log(this.content.players[i].fname);
-            plys_tosort.push(this.transformatPlayer(plys[i]));
+            plys_tosort.push(await this.transformatPlayer(plys[i]));
         }
 
         plys_tosort.sort((a, b) => {
@@ -601,7 +604,7 @@ class MongoDB {
         }
 
         let balance_count = 0;
-        let plys = this.getPlayers();
+        let plys = await this.getPlayers();
         for (let i=0; i<plys.length; i+=1) {
             balance_count += plys[i].balance_usd_cents;
         }
@@ -671,9 +674,9 @@ class MongoDB {
         }
 
         let filter = null;
-        if (flag === null || flag === true)
+        if (flag === true)
             filter = { $or: [ { ended_at: null }, { ended_at: { $exists: false } } ] };
-        else if (flag === '*')
+        else if (flag === undefined || flag === null)
             filter = {};
         else 
             filter = { ended_at: { $exists: true, $type: "date" } };
@@ -720,12 +723,15 @@ class MongoDB {
         const mch_new = {
             mid: mch._id.toString(),
             entry_fee_usd_cents: mch.entry_fee_usd_cents || 10,
+            p1: ply_1,
             p1_id: mch.p1_id.toString(),
             p1_name: ply_1.name,
             p1_points: mch.p1_points || 0,
+            p2: ply_2,
             p2_id: mch.p2_id.toString(),
             p2_name: ply_2.name,
             p2_points: mch.p2_points || 0,
+            // winner: await this.getPlayer(mch.winner_pid),
             winner_pid: mch.winner_pid || null,
             is_dq: mch.is_dq || false,
             is_active: active_state,
@@ -734,6 +740,8 @@ class MongoDB {
             created_at: mch.created_at || new Date(), 
             ended_at: mch.ended_at || null
         };
+
+        if (mch_new.winner_pid) mch_new.winner = await this.getPlayer(mch_new.winner_pid);
         return mch_new;
     }
 
@@ -1027,7 +1035,7 @@ type Query {
         limit: Int # you may skip this field
         offset: Int # you may skip this field
         sort: String # you may skip this field
-        is_active: WildcardBoolean
+        is_active: Boolean
         q: String
     ): [Player]!
 
@@ -1037,7 +1045,7 @@ type Query {
         limit: Int # you may skip this field
         offset: Int # you may skip this field
         sort: String # you may skip this field
-        is_active: WildcardBoolean
+        is_active: Boolean
     ): [Match]!
 
     dashboard: Dashboard
@@ -1091,11 +1099,6 @@ enum HandedEnum {
     right
 }
 
-enum WildcardBoolean {
-    false
-    true
-}
-
 input PlayerCreateInput {
     fname: String!
     handed: HandedEnum
@@ -1141,6 +1144,10 @@ type Match {
 }
 
 type Dashboard {
+    player: DashboardPlayer
+}
+
+type DashboardPlayer {
     avg_balance_usd_cents: Int
     num_active: Int
     num_inactive: Int
@@ -1149,103 +1156,95 @@ type Dashboard {
 
 `);
 
-const players = [
-    {
-      pid: '1',
-      fname: 'John',
-      lname: 'Doe',
-      handed: 'right',
-      initial_balance_usd_cents: 1000,
-      balance_usd_cents: 1200,
-      is_active: true,
-      num_join: 5,
-      num_won: 2,
-      num_dq: 1,
-      total_points: 50,
-      total_prize_usd_cents: 5000,
-    },
-    {
-      pid: '2',
-      fname: 'Jane',
-      lname: 'Doe',
-      handed: 'left',
-      initial_balance_usd_cents: 500,
-      balance_usd_cents: 800,
-      is_active: false,
-      num_join: 2,
-      num_won: 0,
-      num_dq: 0,
-      total_points: 20,
-      total_prize_usd_cents: 0,
-    },
-  ];
-  
-  const matches = [
-    {
-      mid: '1',
-      p1: players[0],
-      p2: players[1],
-      entry_fee_usd_cents: 1000,
-      prize_usd_cents: 5000,
-      p1_points: 20,
-      p2_points: 30,
-      ended_at: '2023-04-22T12:00:00Z',
-      is_active: false,
-      is_dq: false,
-    }, {
-        mid: '2',
-        p1: players[0],
-        p2: players[1],
-        entry_fee_usd_cents: 1000,
-        prize_usd_cents: 5000,
-        p1_points: 20,
-        p2_points: 30,
-        ended_at: '2023-04-22T12:00:00Z',
-        is_active: false,
-        is_dq: false,
-    },
-  
-  ];
+// const temp_ply = players.find((player) => player.pid === '1');
+// console.log(temp_ply);
   
 const resolvers = {
-    Query: {
-        player: (parent, args, context, info) => {
-            return players.find((player) => player.pid === args.pid);
-        },
-        players: (parent, args, context, info) => {
-            let filteredPlayers = players;
-            if (args.q) {
-            filteredPlayers = filteredPlayers.filter(
-                (player) =>
-                player.fname.toLowerCase().includes(args.q.toLowerCase()) ||
-                player.lname.toLowerCase().includes(args.q.toLowerCase())
+    player: async (args) => {
+        // console.log('args.pid = ', args.pid);
+        let ply =  await mongo.getPlayer(args.pid);
+        // ply.fname = ply.name.split(' ')[0];
+        // ply.lname = ply.name.split(' ')[1];
+        return ply;
+    },
+    players: async (args) => {
+        // const isActive = args.is_active === 'TRUE' ? true : args.is_active === 'FALSE' ? false : null;
+
+        let filteredPlayers = await mongo.getPlayers();
+        if (args.q) {
+            filteredPlayers = filteredPlayers.filter((player) =>
+                player.name.toLowerCase().includes(args.q.toLowerCase())
             );
-            }
-            if (args.is_active !== undefined) {
+        }
+        if (args.is_active !== undefined) {
             filteredPlayers = filteredPlayers.filter(
                 (player) => player.is_active === args.is_active
             );
-            }
-            if (args.sort) {
-            const [field, order] = args.sort.split('_');
-            if (order === 'asc') {
-                filteredPlayers.sort((a, b) => a[field] - b[field]);
-            } else if (order === 'desc') {
-                filteredPlayers.sort((a, b) => b[field] - a[field]);
-            }
-            }
-            if (args.limit) {
-            filteredPlayers = filteredPlayers.slice(
-                args.offset,
-                args.offset + args.limit
-            );
-            }
-            return filteredPlayers;
-        },
-        match: (parent, args, context, info) => {
-            return matches.find((match) => match.mid === args.mid);
-        },
-        matches: (parent, args, context, info) => {}
+        }
+        return filteredPlayers;
+    },
+    match: async (args) => {
+        return await mongo.getMatch(args.mid);
+    },
+    matches: async (args) => {
+        // const isActive = args.is_active === 'TRUE' ? true : args.is_active === 'FALSE' ? false : args.is_active;
+
+        return await mongo.getMatches(args.is_active);
+    }, 
+    dashboard: async (args) => {
+        const plys = await mongo.getPlayers();
+        const plys_active = await mongo.getPlayers(true);
+        const plys_inactive = await mongo.getPlayers(false);
+        const plys_avg = parseInt(await mongo.avg_balance());
+        const vars = {
+            num_total: plys.length,
+            num_active: plys_active.length,
+            num_inactive: plys_inactive.length,
+            avg_balance_usd_cents: plys_avg
+        };
+        return {player: vars};
+    },
+    matchAward: async (args) => {
+        await mongo.updateMatchPoints(args.mid, args.pid, args.points);
+        return await mongo.getMatch(args.mid);
+    },
+    matchCreate: async (args) => {
+        const id = await mongo.createMatch(
+            args.pid1,
+            args.pid2,
+            args.entry_fee_usd_cents,
+            args.prize_usd_cents
+        );
+        return await mongo.getMatch(id);
+    }, 
+    matchDisqualify: async (args) => {
+        await mongo.disqualifyMatch(args.mid, args.pid);
+        return await mongo.getMatch(args.mid);
+    }, 
+    matchEnd: async (args) => {
+        await mongo.endMatch(args.mid);
+        return await mongo.getMatch(args.mid);
+    }, 
+    playerCreate: async (args) => {
+        const input = args.playerInput;
+        const id = await mongo.createPlayer(input.fname, input.lname, input.handed, input.initial_balance_usd_cents);
+        return await mongo.getPlayer(id);
+    }, 
+    playerDelete: async (args) => {
+        await mongo.deletePlayer(args.pid);
+        return true;
+    }, 
+    playerDeposit: async (args) => {
+        if (!mongo.checkCurrency(args.amount_usd_cents)) throw mongo.my_error;
+        await mongo.addCurrency(args.pid, args.amount_usd_cents);
+        return await mongo.getPlayer(args.pid);
+    }, 
+    playerUpdate: async (args) => {
+        const input = args.playerInput;
+        for (let key in input) {
+            await mongo.updatePlayer(args.pid, key, input[key]);
+        }
+        return await mongo.getPlayer(args.pid);
     }
 }
 
